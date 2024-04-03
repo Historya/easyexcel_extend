@@ -2,7 +2,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.ls</groupId>
+    <groupId>com.ls.easyexcel</groupId>
     <artifactId>easyexcel_extend</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
@@ -24,7 +24,6 @@
             <artifactId>easyexcel</artifactId>
             <version>3.3.4</version>
         </dependency>
-
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

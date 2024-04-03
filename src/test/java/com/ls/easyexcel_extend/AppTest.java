@@ -1,4 +1,4 @@
-package com.ls;
+package com.ls.easyexcel_extend;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
