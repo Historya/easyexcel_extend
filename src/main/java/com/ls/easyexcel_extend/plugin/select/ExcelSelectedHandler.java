@@ -6,7 +6,6 @@ import com.alibaba.excel.write.metadata.holder.WriteSheetHolder;
 import com.alibaba.excel.write.metadata.holder.WriteWorkbookHolder;
 import com.ls.easyexcel_extend.base.BaseHandler;
 import com.ls.easyexcel_extend.base.Model;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -92,7 +91,9 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
      */
     @Override
     public void afterSheetCreate(WriteWorkbookHolder writeWorkbookHolder, WriteSheetHolder writeSheetHolder) {
-        if (this.selectedResolveMap.isEmpty()) return;
+        if (this.selectedResolveMap.isEmpty()) {
+            return;
+        }
 
         final Workbook workbook = writeWorkbookHolder.getWorkbook();
         final Sheet sheet = writeSheetHolder.getSheet();
@@ -291,60 +292,4 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
         return this.modelClass;
     }
 
-
-    @Data
-    abstract static class ExcelSelectColumn {
-
-        private ExcelSelected.Type type;
-
-        Class<? extends ExcelDynamicDataSource> sourceHandel;
-
-
-        String[] sourceParams;
-
-        Integer parentColumnIndex;
-
-        /**
-         * 设置下拉框的起始行，默认为第二行
-         */
-        private int firstRow;
-
-        /**
-         * 设置下拉框的结束行，默认为最后一行
-         */
-        private int lastRow;
-    }
-
-    static final class EasyExcelSelectColumn extends ExcelSelectColumn {
-        /**
-         * 下拉内容
-         */
-        private String[] source;
-
-        public String[] getSource() {
-            return source;
-        }
-
-        public void setSource(String[] source) {
-            this.source = source;
-        }
-    }
-
-    /**
-     * 联级
-     */
-    static final class CascadeExcelSelectColumn extends ExcelSelectColumn {
-        /**
-         * 下拉内容
-         */
-        private Map<String, String[]> source;
-
-        public Map<String, String[]> getSource() {
-            return source;
-        }
-
-        public void setSource(Map<String, String[]> source) {
-            this.source = source;
-        }
-    }
 }

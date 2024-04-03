@@ -25,12 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * 表头批注处理
  *
  * @param <E> 定义了表头信息的类
- * @see ExcelCommentAnnotation 此处理类想要配合一起使用
+ * @see com.ls.easyexcel_extend.plugin.comment.ExcelComment 此处理类想要配合一起使用
  * @author ls
  * @version 1.0
  */
 @Slf4j
-public class ExcelHeadCommentCellWriteBaseHandler<E extends Model> implements BaseHandler<E>, CellWriteHandler {
+public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>, CellWriteHandler {
 
     private final Class<E> modelClass;
 
@@ -39,7 +39,7 @@ public class ExcelHeadCommentCellWriteBaseHandler<E extends Model> implements Ba
      */
     private ConcurrentHashMap<Integer, ExcelComment> excelHeadCommentMap;
 
-    public ExcelHeadCommentCellWriteBaseHandler(Class<E> modeClass) {
+    public ExcelHeadCommentHandler(Class<E> modeClass) {
         this.modelClass = modeClass;
         this.getNotationMap();
     }
@@ -77,7 +77,7 @@ public class ExcelHeadCommentCellWriteBaseHandler<E extends Model> implements Ba
         for (ModelColumn column : modelColumnList) {
             Field field = column.getField();
             ExcelComment excelComment = new ExcelComment();
-            ExcelCommentAnnotation excelCommentAnnotation = field.getAnnotation(ExcelCommentAnnotation.class);
+            com.ls.easyexcel_extend.plugin.comment.ExcelComment excelCommentAnnotation = field.getAnnotation(com.ls.easyexcel_extend.plugin.comment.ExcelComment.class);
             if(null == excelCommentAnnotation){
                 continue;
             }

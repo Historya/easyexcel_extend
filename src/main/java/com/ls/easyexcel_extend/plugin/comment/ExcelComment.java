@@ -15,7 +15,7 @@ import static java.lang.annotation.ElementType.FIELD;
  */
 @Target(FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ExcelCommentAnnotation {
+public @interface ExcelComment {
 
     /**
      * 批注文本内容
