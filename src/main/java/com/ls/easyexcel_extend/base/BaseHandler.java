@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * 基础处理器
  * <br/>
  * date: 2024/3/28<br/>
  *
@@ -20,16 +21,16 @@ public interface BaseHandler<E extends Model>{
      */
     Class<E> getModelClass();
 
-    default List<ModelColumn> getModelFields(){
+    default List<ModelField> getModelFields(){
         Field[] declaredFields = this.getModelClass().getDeclaredFields();
-        List<ModelColumn> fieldList = new ArrayList<>();
+        List<ModelField> fieldList = new ArrayList<>();
         for (int i = 0; i < declaredFields.length; i++) {
             Field itemField = declaredFields[i];
             if(itemField.isAnnotationPresent(ExcelIgnore.class)){
                 continue;
             }
 
-            fieldList.add(new ModelColumn(i,itemField));
+            fieldList.add(new ModelField(i,itemField));
         }
 
         return fieldList;

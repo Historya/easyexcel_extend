@@ -8,7 +8,8 @@ import com.alibaba.excel.write.metadata.holder.WriteSheetHolder;
 import com.alibaba.excel.write.metadata.holder.WriteTableHolder;
 import com.ls.easyexcel_extend.base.BaseHandler;
 import com.ls.easyexcel_extend.base.Model;
-import com.ls.easyexcel_extend.base.ModelColumn;
+import com.ls.easyexcel_extend.base.ModelField;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Comment;
@@ -37,7 +38,7 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
     /**
      * 缓存表头批注信息
      */
-    private ConcurrentHashMap<Integer, ExcelComment> excelHeadCommentMap;
+    private final ConcurrentHashMap<Integer, ExcelComment> excelHeadCommentMap = new ConcurrentHashMap<>();
 
     public ExcelHeadCommentHandler(Class<E> modeClass) {
         this.modelClass = modeClass;
@@ -56,7 +57,6 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
         // 批注内容
         ExcelComment excelComment = this.excelHeadCommentMap.get(cell.getColumnIndex());
         // 创建绘图对象
-        // XSSFClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, (short) cell.getColumnIndex(), 0, (short) excelComment.getRemarkColumnWide(), excelComment.getRemarkRowHigh());
         XSSFClientAnchor anchor = new XSSFClientAnchor();
         int rowIndex = cell.getRowIndex();
         int columnIndex = cell.getColumnIndex();
@@ -73,8 +73,8 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
      * 获取批注信息
      */
     private void getNotationMap() {
-        List<ModelColumn> modelColumnList = this.getModelFields();
-        for (ModelColumn column : modelColumnList) {
+        List<ModelField> modelFieldList = this.getModelFields();
+        for (ModelField column : modelFieldList) {
             Field field = column.getField();
             ExcelComment excelComment = new ExcelComment();
             com.ls.easyexcel_extend.plugin.comment.ExcelComment excelCommentAnnotation = field.getAnnotation(com.ls.easyexcel_extend.plugin.comment.ExcelComment.class);
@@ -96,6 +96,7 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
         return this.modelClass;
     }
 
+    @Data
     static class ExcelComment {
 
         /**
@@ -124,45 +125,5 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
          * @return int
          */
         int row;
-
-        public Integer getColumn() {
-            return column;
-        }
-
-        public void setColumn(Integer column) {
-            this.column = column;
-        }
-
-        public String getRemarkValue() {
-            return remarkValue;
-        }
-
-        public void setRemarkValue(String remarkValue) {
-            this.remarkValue = remarkValue;
-        }
-
-        public int getRemarkRowHigh() {
-            return remarkRowHigh;
-        }
-
-        public void setRemarkRowHigh(int remarkRowHigh) {
-            this.remarkRowHigh = remarkRowHigh;
-        }
-
-        public int getRemarkColumnWide() {
-            return remarkColumnWide;
-        }
-
-        public void setRemarkColumnWide(int remarkColumnWide) {
-            this.remarkColumnWide = remarkColumnWide;
-        }
-
-        public int getRow() {
-            return row;
-        }
-
-        public void setRow(int row) {
-            this.row = row;
-        }
     }
 }

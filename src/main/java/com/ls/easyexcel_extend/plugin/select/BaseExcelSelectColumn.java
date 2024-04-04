@@ -2,8 +2,13 @@ package com.ls.easyexcel_extend.plugin.select;
 
 import lombok.Data;
 
+/**
+ * excel下拉选择列
+ * @author ls
+ * @version 1.0
+ */
 @Data
-public abstract class ExcelSelectColumn {
+public abstract class BaseExcelSelectColumn {
 
     private ExcelSelected.Type type;
 

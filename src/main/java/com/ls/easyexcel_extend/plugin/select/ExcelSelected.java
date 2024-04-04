@@ -3,7 +3,7 @@ package com.ls.easyexcel_extend.plugin.select;
 import java.lang.annotation.*;
 
 /**
- * 下拉
+ * excel下拉选择
  * @author ls
  * @version 1.0
  */
@@ -30,6 +30,9 @@ public @interface ExcelSelected {
      */
     String[] sourceParams() default {};
 
+    /**
+     *父索引
+     */
     int parentColumnIndex() default -1;
 
     /**

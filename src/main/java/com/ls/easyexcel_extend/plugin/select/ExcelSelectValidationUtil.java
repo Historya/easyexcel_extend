@@ -14,9 +14,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * @author hp
+ * @author hp <br/>
+ * <a href="https://www.bianchengbaodian.com/article/d539493521d9cf201294e9881b569168.html">来源</a>  <br/>
  */
 public class ExcelSelectValidationUtil {
+
+    private ExcelSelectValidationUtil() {
+        throw new IllegalStateException("ExcelSelectValidationUtil class");
+    }
 
     public static Sheet addCascadeValidationToSheet(
             Workbook workbook,
@@ -146,7 +151,8 @@ public class ExcelSelectValidationUtil {
 
     private static String calculateColumnName(int columnCount) {
         final int minimumExponent = minimumExponent(columnCount);
-        final int base = 26, layers = (minimumExponent == 0 ? 1 : minimumExponent);
+        final int base = 26;
+        final int layers = (minimumExponent == 0 ? 1 : minimumExponent);
         final List<Character> sequence = new ArrayList<>();
         int remain = columnCount;
         for (int i = 0; i < layers; i++) {
