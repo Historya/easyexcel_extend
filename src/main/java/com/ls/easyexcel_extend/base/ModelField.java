@@ -5,7 +5,7 @@ import lombok.Data;
 import java.lang.reflect.Field;
 
 /**
- *
+ * excel table head model
  * <br/>
  * date: 2024/3/28<br/>
  * @author ls
@@ -15,8 +15,14 @@ import java.lang.reflect.Field;
  */
 @Data
 public class ModelField {
+    /**
+     * 列索引
+     */
     private Integer index;
 
+    /**
+     * model entity field
+     */
     private Field field;
 
     public ModelField(){
