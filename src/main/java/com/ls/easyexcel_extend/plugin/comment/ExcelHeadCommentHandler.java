@@ -48,22 +48,37 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
     @Override
     public void afterCellDispose(WriteSheetHolder writeSheetHolder, WriteTableHolder writeTableHolder,
                                  List<WriteCellData<?>> cellDataList, Cell cell, Head head, Integer relativeRowIndex, Boolean isHead) {
-        if (!isHead || this.excelHeadCommentMap.isEmpty()) return;
+        if (Boolean.FALSE.equals(isHead) || this.excelHeadCommentMap.isEmpty() ||
+                !this.excelHeadCommentMap.containsKey(cell.getColumnIndex())) return;
+        List<String> headNameList = head.getHeadNameList();
 
-        Sheet sheet = writeSheetHolder.getSheet();
-        Drawing<?> drawingPatriarch = sheet.createDrawingPatriarch();
-        if (!this.excelHeadCommentMap.containsKey(cell.getColumnIndex())) return;
+        //只在表头最后一行添加
+        if(headNameList.size() > 1 && relativeRowIndex != headNameList.size() -1 ) return;
 
         // 批注内容
         ExcelComment excelComment = this.excelHeadCommentMap.get(cell.getColumnIndex());
         // 创建绘图对象
         XSSFClientAnchor anchor = new XSSFClientAnchor();
         int rowIndex = cell.getRowIndex();
+        //计算合并单元开始位置
+        if(headNameList.size() > 1){
+            String cellKey = headNameList.get(cell.getRowIndex());
+            for (int i = cell.getRowIndex() -1; i >=0; i--) {
+                if(cellKey.equals(headNameList.get(i))){
+                    rowIndex--;
+                }else {
+                    break;
+                }
+            }
+        }
+
         int columnIndex = cell.getColumnIndex();
         anchor.setRow1(rowIndex);
         anchor.setCol1(columnIndex);
         anchor.setRow2(rowIndex + excelComment.getRemarkColumnWide());
         anchor.setCol2(columnIndex + excelComment.getRemarkRowHigh());
+        Sheet sheet = writeSheetHolder.getSheet();
+        Drawing<?> drawingPatriarch = sheet.createDrawingPatriarch();
         Comment comment = drawingPatriarch.createCellComment(anchor);
         comment.setString(new XSSFRichTextString(excelComment.getRemarkValue()));
         cell.setCellComment(comment);
