@@ -121,8 +121,6 @@ public class ExcelHeadCommentHandler<E extends Model> implements BaseHandler<E>,
 
         /**
          * 批注所在行
-         *
-         * @return int
          */
         int row;
     }
