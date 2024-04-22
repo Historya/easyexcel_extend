@@ -3,62 +3,84 @@
 基于 easyExcel **3.3.x** 开发
 
 ## 1.注解批注功能
+##### 说明
+``` java
+@Target(FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ExcelComment {
+
+    /**
+     * 批注文本内容
+     */
+    String value() default "";
+
+    /**
+     * 批注行高, 一般不用设置
+     * 这个参数可以设置不同字段 批注显示框的高度
+     */
+    int remarkRowHigh() default 2;
+
+    /**
+     * 批注列宽, 根据导出情况调整
+     * 这个参数可以设置不同字段 批注显示框的宽度
+     */
+    int remarkColumnWide() default 4;
+}
+```
 ##### 代码：
 ``` java
-public class StationExcelDTO {
-  
-      @ExcelProperty(value = "加油站",index = 0)
-      @ExcelCommentAnnotation("必填")
-      @ColumnWidth(value = 20)
-      @ContentStyle(dataFormat = 49)
-      private String name;
-      
-      @ExcelProperty(value = "所属机构",index = 1)
-      @ExcelCommentAnnotation("必填,填入系统管理>部门管理菜单下的部门名称")
-      @ColumnWidth(value = 30)
-      @ContentStyle(dataFormat = 49)
-      private String organizeId;
-  
-      //.......
+@ContentStyle(dataFormat = 49)
+@HeadStyle(fillForegroundColor= 23)
+public class CommentModel implements Model {
+
+    @ExcelProperty(value = "标题1")
+    @ExcelComment("标题1，xxxxxxxxxxxxxxxxxxxx")
+    @ColumnWidth(value = 20)
+    private String title1;
+
+    @ExcelProperty(value = "标题2")
+    @ExcelComment("标题2，xxxxxxxxxxxxxxxxxxxx")
+    @ColumnWidth(value = 20)
+    private String title2;
 }
 ```
    
 ```java
-@GetMapping("/template")
-public void templateExcel(HttpServletResponse response, HttpServletRequest request) throws IOException {
-    // 文件名字
-    String fileName = "加油站导入模板";
-    CommonUtil.exportFileResponseHeader(response, request, fileName, "application/vnd.ms-excel");
-    try (ServletOutputStream os = response.getOutputStream()) {
-        EasyExcel.write(os, StationExcelDTO.class)
-                .sheet("加油站信息")
-                .registerWriteHandler(new ExcelHeadCommentHandler<>(StationExcelDTO.class))
-                .doWrite(null);
-    }
+/**
+ * 测试批注
+ */
+public void testComment(){
+    EasyExcel.write()
+            .head(CommentModel.class)
+            .file(OUT_PATH+"测试EXCEL批准.xlsx")
+            .sheet("sheet")
+            .registerWriteHandler(new ExcelHeadCommentHandler<>(CommentModel.class))
+            .doWrite(CollectionUtils.emptyCollection());
 }
 ```
 ##### 效果：
-![批注效果](doc/imgs/comment.png)
+![excel批注效果](doc/imgs/comment.png)
 
 ## 2.下拉选项
-###### 说明
+##### 说明
 ```java
+@Documented
+@Target({ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
 public @interface ExcelSelected {
     /**
      * 类型
      */
     Type type();
-
     /**
      * 固定下拉内容
      */
     String[] source() default {};
-
     /**
      * 动态数据类
      * 动态下拉内容
      */
-    Class<? extends ExcelDynamicDataSource> sourceHandle();
+    Class<? extends ExcelDynamicDataSource> sourceHandle() default DefaultDataSource.class;
 
     /**
      * 动态数据 参数
@@ -81,9 +103,13 @@ public @interface ExcelSelected {
      */
     int lastRow() default 65536;
 
-    static enum Type {
+    enum Type{
+        //序列
         SEQUENCE,
-        CUSTOMER
+        //自定义
+        CUSTOMER,
+        //联级
+        CASCADE
     }
 }
 ```
@@ -108,98 +134,74 @@ public interface ExcelDynamicDataSource {
 ###### 代码
 
 ```java
-public class OliInApplyExcelDTO {
+/**
+ * 示例excel下拉选项模型
+ * <br/>
+ * date: 2024/4/21<br/>
+ * version 0.1
+ *
+ * @author ls<br />
+ */
+@ContentStyle(dataFormat = 49)
+@HeadStyle(fillForegroundColor= 23)
+public class SelectdModel implements Model {
 
+    @ExcelProperty(value = "标题1",index = 0)
+    @ExcelSelected(type = ExcelSelected.Type.SEQUENCE, source = {"一", "二", "三"})
     @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    @ExcelCommentAnnotation(value = "单号不能为空,字符长度14")
-    @ExcelProperty(value = "单号", index = 0)
-    private String code;
+    private String title1;
 
+    @ExcelSelected(type = ExcelSelected.Type.CASCADE, sourceHandle = AssociationDataSource.class,parentColumnIndex = 0)
+    @ExcelProperty(value = "标题2")
     @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    @ExcelCommentAnnotation("进油日期,yyyy-MM-dd")
-    @ExcelProperty(value = "进油日期", index = 1)
-    @DateTimeFormat(value = DateUtil.SIMPLE_DAY_DATE_FORMAT)
-    private Date dateTime;
+    private String title2;
 
-    @ExcelSelected(type = ExcelSelected.Type.CUSTOMER, sourceClass = StationDataSource.class, firstRow = 2)
-    @ExcelCommentAnnotation("油站，不能为空,字符长度1-128")
+    @ExcelSelected(type = ExcelSelected.Type.CUSTOMER, sourceHandle = ParamsDataSource.class,sourceParams = {"1","2","3"})
+    @ExcelProperty(value = "标题3")
     @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    @ExcelProperty(value = "油站", index = 2)
-    private String stationName;
-
-    /**
-     * 备注
-     */
-    @ExcelCommentAnnotation("备注,字符长度1~1000字")
-    @ExcelProperty(value = "备注", index = 3)
-    @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    private String remark;
-
-    @ExcelCommentAnnotation("商品类型,字符长度1~120字")
-    @ExcelProperty(value = {"进油明细", "商品类型"}, index = 4)
-    @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    @ExcelSelected(type = ExcelSelected.Type.CUSTOMER, sourceClass = ItemClassDataSource.class, firstRow = 2)
-    private String itemClassName;
-
-    @ExcelCommentAnnotation("商品名称,字符长度1-128")
-    @ExcelSelected(type = ExcelSelected.Type.CUSTOMER, sourceClass = ItemDataSource.class, parentColumnIndex = 4, firstRow = 2)
-    @ColumnWidth(value = 20)
-    @ContentStyle(dataFormat = 49)
-    @ExcelProperty(value = {"进油明细", "商品名称"}, index = 5)
-    private String itemName;
-
-    /**
-     * 商品数量
-     */
-    @ExcelCommentAnnotation("进油数量,不能为空")
-    @ExcelProperty(value = {"进油明细", "进油数量"}, index = 6)
-    @ColumnWidth(value = 15)
-    @ContentStyle(dataFormat = 49)
-    private String itemQuantity;
-
-    //................
+    private String title3;
 }
 ```
 
 ```java
-public class ItemClassDataSource implements ExcelDynamicDataSource {
-
-    /**
-     * 获取动态生成的下拉框可选数据
-     *
-     * @param params 参数
-     * @return 动态生成的下拉框可选数据
-     */
+public class AssociationDataSource implements ExcelDynamicDataSource {
     @Override
-    public String[] getSource(String[] params) {
-        ItemClassService itemClassService = SpringUtil.getBean(ItemClassService.class);
-        if(null == itemClassService) return new String[0];
-
-        List<EntityItemClassAO> itemClassList = itemClassService.getItemClassListByPid(StaticDefine.ROOT_NODE).getData();
-        if(CollectionUtils.isEmpty(itemClassList)) return new String[0];
-
-        return itemClassList.stream().map(EntityItemClassAO::getName).distinct().toArray(String[]::new);
+    public String[] getSource(String[] param) {
+        String key = param[0];
+        if("一".equals(key)){
+            return new String[]{"1-1","1-2"};
+        }
+        if("二".equals(key)){
+            return new String[]{"2-1","2-2"};
+        }
+        if("三".equals(key)){
+            return new String[]{"3-1","3-2"};
+        }
+        return null;
     }
 }
+
+
+public class ParamsDataSource implements ExcelDynamicDataSource {
+    @Override
+    public String[] getSource(String[] param) {
+        return param;
+    }
+}
+
 ```
 
 ```java
-@GetMapping("/template")
-public void templateExcel(HttpServletResponse response, HttpServletRequest request) throws IOException {
-    // 文件名字
-    String fileName = "加油站导入模板";
-    CommonUtil.exportFileResponseHeader(response, request, fileName, "application/vnd.ms-excel");
-    try (ServletOutputStream os = response.getOutputStream()) {
-        EasyExcel.write(os, StationExcelDTO.class)
-                .sheet("加油站信息")
-                .registerWriteHandler(new ExcelSelectedHandler<>(StationExcelDTO.class))
-                .doWrite(null);
-    }
+    /**
+ * 测试下拉选项
+ */
+public void testSelect(){
+    EasyExcel.write()
+            .head(SelectdModel.class)
+            .file(OUT_PATH+"测试EXCEL下拉.xlsx")
+            .sheet("sheet")
+            .registerWriteHandler(new ExcelSelectedHandler<>(SelectdModel.class))
+            .doWrite(CollectionUtils.emptyCollection());
 }
 ```
 

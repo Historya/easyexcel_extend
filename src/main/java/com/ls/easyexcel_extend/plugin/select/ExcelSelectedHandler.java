@@ -18,14 +18,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * excel下拉选择处理
- * @see com.ls.easyexcel_extend.plugin.select.ExcelSelected 此处理类想要配合一起使用
- * @param <E> model
  *
+ * @param <E> model
  * @author ls
  * @version 1.0
+ * @see com.ls.easyexcel_extend.plugin.select.ExcelSelected 此处理类想要配合一起使用
  */
 @Slf4j
-public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,SheetWriteHandler {
+public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, SheetWriteHandler {
     private static final String PARAMETER_DEFINITIONS_SHEET_NAME = "系统参数";
 
     private final Map<Integer, BaseExcelSelectColumn> selectedResolveMap = new HashMap<>();
@@ -36,63 +36,6 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
         super();
         this.modelClass = modelClass;
         this.init();
-    }
-
-    /**
-     * Called before create the sheet
-     */
-    @Override
-    public void beforeSheetCreate(WriteWorkbookHolder writeWorkbookHolder, WriteSheetHolder writeSheetHolder) {
-        if (this.selectedResolveMap.isEmpty()) return;
-
-        final Workbook workbook = writeWorkbookHolder.getWorkbook();
-        final Sheet sheet = writeSheetHolder.getSheet();
-        // 仅创建一个sheet用于存放下拉数据
-        final AtomicReference<Sheet> definitionsSheet = new AtomicReference<>(ExcelSelectValidationUtil.createTmpSheet(workbook, PARAMETER_DEFINITIONS_SHEET_NAME));
-        final AtomicInteger definitionsSheetStartColumn = new AtomicInteger(0);
-
-        for (Map.Entry<Integer, BaseExcelSelectColumn> item : this.selectedResolveMap.entrySet()) {
-            BaseExcelSelectColumn value = item.getValue();
-            Integer index = item.getKey();
-
-            if (value instanceof CascadeExcelSelectColumn) {
-                CascadeExcelSelectColumn columnModel = (CascadeExcelSelectColumn) value;
-                Map<String, String[]> source = columnModel.getSource();
-                if(null == source || source.isEmpty()) continue;
-                definitionsSheet.set(
-                        ExcelSelectValidationUtil.addCascadeValidationToSheet(
-                                workbook,
-                                sheet,
-                                definitionsSheet,
-                                columnModel.getSource(),
-                                definitionsSheetStartColumn,
-                                columnModel.getParentColumnIndex(),
-                                index,
-                                columnModel.getFirstRow(),
-                                columnModel.getLastRow()
-                        )
-                );
-                continue;
-            }
-
-            if (value instanceof CommonExcelSelectColumn) {
-                CommonExcelSelectColumn columnModel = (CommonExcelSelectColumn) value;
-                String[] source = columnModel.getSource();
-                if(null == source || source.length == 0) continue;
-                definitionsSheet.set(
-                        ExcelSelectValidationUtil.addSelectValidationToSheet(
-                                workbook,
-                                sheet,
-                                definitionsSheet,
-                                columnModel.getSource(),
-                                definitionsSheetStartColumn,
-                                index,
-                                columnModel.getFirstRow(),
-                                columnModel.getLastRow()
-                        )
-                );
-            }
-        }
     }
 
     /**
@@ -117,7 +60,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
             if (value instanceof CascadeExcelSelectColumn) {
                 CascadeExcelSelectColumn columnModel = (CascadeExcelSelectColumn) value;
                 Map<String, String[]> source = columnModel.getSource();
-                if(null == source || source.isEmpty()) continue;
+                if (null == source || source.isEmpty()) continue;
                 definitionsSheet.set(
                         ExcelSelectValidationUtil.addCascadeValidationToSheet(
                                 workbook,
@@ -137,7 +80,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
             if (value instanceof CommonExcelSelectColumn) {
                 CommonExcelSelectColumn columnModel = (CommonExcelSelectColumn) value;
                 String[] source = columnModel.getSource();
-                if(null == source || source.length == 0) continue;
+                if (null == source || source.length == 0) continue;
                 definitionsSheet.set(
                         ExcelSelectValidationUtil.addSelectValidationToSheet(
                                 workbook,
@@ -179,16 +122,27 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
             int colIndex = excelProperty.index();
 
             switch (type) {
+                case SEQUENCE:
+                    CommonExcelSelectColumn sequenceExcelSelectColumn = new CommonExcelSelectColumn();
+                    sequenceExcelSelectColumn.setType(ExcelSelected.Type.SEQUENCE);
+                    sequenceExcelSelectColumn.setLastRow(excelSelected.lastRow());
+                    sequenceExcelSelectColumn.setFirstRow(excelSelected.firstRow());
+                    sequenceExcelSelectColumn.setSource(excelSelected.source());
+
+                    colIndex = colIndex == -1 ? modelField.getIndex() : colIndex;
+                    this.selectedResolveMap.put(colIndex, sequenceExcelSelectColumn);
+                    break;
                 case CUSTOMER:
-                    if (parentColumnIndex == -1) {
-                        CommonExcelSelectColumn easyExcelSelectColumn = new CommonExcelSelectColumn();
-                        easyExcelSelectColumn.setType(ExcelSelected.Type.CUSTOMER);
-                        easyExcelSelectColumn.setLastRow(excelSelected.lastRow());
-                        easyExcelSelectColumn.setFirstRow(excelSelected.firstRow());
-                        easyExcelSelectColumn.setSourceHandel(excelSelected.sourceHandle());
-                        easyExcelSelectColumn.setSourceParams(excelSelected.sourceParams());
-                        this.selectedResolveMap.put((colIndex == -1 ? i : colIndex), easyExcelSelectColumn);
-                    } else {
+                    CommonExcelSelectColumn customerExcelSelectColumn = new CommonExcelSelectColumn();
+                    customerExcelSelectColumn.setType(ExcelSelected.Type.CUSTOMER);
+                    customerExcelSelectColumn.setLastRow(excelSelected.lastRow());
+                    customerExcelSelectColumn.setFirstRow(excelSelected.firstRow());
+                    customerExcelSelectColumn.setSourceHandel(excelSelected.sourceHandle());
+                    customerExcelSelectColumn.setSourceParams(excelSelected.sourceParams());
+                    this.selectedResolveMap.put((colIndex == -1 ? i : colIndex), customerExcelSelectColumn);
+                    break;
+                case CASCADE:
+                    if (parentColumnIndex != -1) {
                         CascadeExcelSelectColumn cascadeExcelSelectColumn = new CascadeExcelSelectColumn();
                         cascadeExcelSelectColumn.setType(ExcelSelected.Type.CUSTOMER);
                         cascadeExcelSelectColumn.setLastRow(excelSelected.lastRow());
@@ -198,16 +152,6 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
                         cascadeExcelSelectColumn.setParentColumnIndex(excelSelected.parentColumnIndex());
                         this.selectedResolveMap.put((colIndex == -1 ? i : colIndex), cascadeExcelSelectColumn);
                     }
-                    break;
-                case SEQUENCE:
-                    CommonExcelSelectColumn easyExcelSelectColumn = new CommonExcelSelectColumn();
-                    easyExcelSelectColumn.setType(ExcelSelected.Type.SEQUENCE);
-                    easyExcelSelectColumn.setLastRow(excelSelected.lastRow());
-                    easyExcelSelectColumn.setFirstRow(excelSelected.firstRow());
-                    easyExcelSelectColumn.setSource(excelSelected.source());
-
-                    colIndex = colIndex == -1 ? modelField.getIndex() : colIndex;
-                    this.selectedResolveMap.put(colIndex, easyExcelSelectColumn);
                     break;
                 default:
             }
@@ -228,6 +172,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
 
     /**
      * 初始化下拉资源
+     *
      * @param orderExcelSelectColumnMap 有序的下拉选择列信息
      */
     private void initSourceData(LinkedHashMap<Integer, BaseExcelSelectColumn> orderExcelSelectColumnMap) {
@@ -272,6 +217,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>,She
 
     /**
      * 计算初始化顺序
+     *
      * @return 计算顺序后的下拉选择列信息列表
      */
     private LinkedHashMap<Integer, BaseExcelSelectColumn> computeInitSourceDataOrder() {

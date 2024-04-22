@@ -8,8 +8,8 @@ import java.lang.annotation.*;
  * @version 1.0
  */
 @Documented
-@Target({ElementType.FIELD})//用此注解用在属性上。
-@Retention(RetentionPolicy.RUNTIME)//注解不仅被保存到class文件中，jvm加载class文件之后，仍然存在；
+@Target({ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
 public @interface ExcelSelected {
     /**
      * 类型
@@ -23,7 +23,7 @@ public @interface ExcelSelected {
      * 动态数据类
      * 动态下拉内容
      */
-    Class<? extends ExcelDynamicDataSource> sourceHandle();
+    Class<? extends ExcelDynamicDataSource> sourceHandle() default DefaultDataSource.class;
 
     /**
      * 动态数据 参数
@@ -46,9 +46,13 @@ public @interface ExcelSelected {
      */
     int lastRow() default 65536;
 
-    static enum Type{
+    enum Type{
+        //序列
         SEQUENCE,
-        CUSTOMER
+        //自定义
+        CUSTOMER,
+        //联级
+        CASCADE
     }
 
 }
