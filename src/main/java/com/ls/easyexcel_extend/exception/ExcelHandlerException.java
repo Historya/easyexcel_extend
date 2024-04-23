@@ -32,6 +32,10 @@ public class ExcelHandlerException extends ExcelAnalysisException {
         super(message,cause);
     }
 
+    public ExcelHandlerException(String message){
+        super(message);
+    }
+
     /**
      * 生成标准信息描述
      * @return 信息描述

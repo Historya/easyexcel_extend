@@ -7,12 +7,14 @@ import com.alibaba.excel.write.metadata.holder.WriteWorkbookHolder;
 import com.ls.easyexcel_extend.base.BaseHandler;
 import com.ls.easyexcel_extend.base.Model;
 import com.ls.easyexcel_extend.base.ModelField;
+import com.ls.easyexcel_extend.exception.ExcelHandlerException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -22,13 +24,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * @param <E> model
  * @author ls
  * @version 1.0
- * @see com.ls.easyexcel_extend.plugin.select.ExcelSelected 此处理类想要配合一起使用
+ * @see com.ls.easyexcel_extend.plugin.select.ExcelSelected 此处理类需要配合一起使用
  */
 @Slf4j
 public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, SheetWriteHandler {
     private static final String PARAMETER_DEFINITIONS_SHEET_NAME = "系统参数";
 
-    private final Map<Integer, BaseExcelSelectColumn> selectedResolveMap = new HashMap<>();
+    private final Map<Integer,BaseExcelSelectColumn> selectedResolveMap = new ConcurrentHashMap<>();
 
     private final Class<E> modelClass;
 
@@ -61,6 +63,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                 CascadeExcelSelectColumn columnModel = (CascadeExcelSelectColumn) value;
                 Map<String, String[]> source = columnModel.getSource();
                 if (null == source || source.isEmpty()) continue;
+
                 definitionsSheet.set(
                         ExcelSelectValidationUtil.addCascadeValidationToSheet(
                                 workbook,
@@ -74,13 +77,13 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                                 columnModel.getLastRow()
                         )
                 );
-                continue;
             }
 
             if (value instanceof CommonExcelSelectColumn) {
                 CommonExcelSelectColumn columnModel = (CommonExcelSelectColumn) value;
                 String[] source = columnModel.getSource();
                 if (null == source || source.length == 0) continue;
+
                 definitionsSheet.set(
                         ExcelSelectValidationUtil.addSelectValidationToSheet(
                                 workbook,
@@ -99,6 +102,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
 
     private void init() {
         this.analyzeModel();
+        this.computeSourceData();
     }
 
     /**
@@ -107,12 +111,14 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
     private void analyzeModel() {
         List<ModelField> fields = this.getModelFields();
 
+        if (fields.isEmpty()) return;
+
         for (int i = 0, fieldsLength = fields.size(); i < fieldsLength; i++) {
             ModelField modelField = fields.get(i);
             Field field = modelField.getField();
-            if (!field.isAnnotationPresent(ExcelSelected.class)) {
-                continue;
-            }
+
+            //没有添加@ExcelSelected注解忽略
+            if (!field.isAnnotationPresent(ExcelSelected.class)) continue;
 
             ExcelSelected excelSelected = field.getAnnotation(ExcelSelected.class);
             int parentColumnIndex = excelSelected.parentColumnIndex();
@@ -144,7 +150,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                 case CASCADE:
                     if (parentColumnIndex != -1) {
                         CascadeExcelSelectColumn cascadeExcelSelectColumn = new CascadeExcelSelectColumn();
-                        cascadeExcelSelectColumn.setType(ExcelSelected.Type.CUSTOMER);
+                        cascadeExcelSelectColumn.setType(ExcelSelected.Type.CASCADE);
                         cascadeExcelSelectColumn.setLastRow(excelSelected.lastRow());
                         cascadeExcelSelectColumn.setFirstRow(excelSelected.firstRow());
                         cascadeExcelSelectColumn.setSourceHandel(excelSelected.sourceHandle());
@@ -156,112 +162,96 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                 default:
             }
         }
-
-        this.computeSourceData();
     }
 
     /**
      * 计算下拉资源
      */
     private void computeSourceData() {
-        //排序
-        LinkedHashMap<Integer, BaseExcelSelectColumn> orderExcelSelectColumnMap = this.computeInitSourceDataOrder();
+        if (this.selectedResolveMap.isEmpty()) return;
 
-        this.initSourceData(orderExcelSelectColumnMap);
+        this.selectedResolveMap.values().parallelStream().forEach(e -> {
+            if (!e.isSourceEmpty()) return;
+            doComputeSourceData(e);
+        });
     }
 
     /**
-     * 初始化下拉资源
-     *
-     * @param orderExcelSelectColumnMap 有序的下拉选择列信息
+     * 计算下拉资源
+     * @param excelSelectColumn 计算列
      */
-    private void initSourceData(LinkedHashMap<Integer, BaseExcelSelectColumn> orderExcelSelectColumnMap) {
-        for (Map.Entry<Integer, BaseExcelSelectColumn> excelSelectColumnEntry : orderExcelSelectColumnMap.entrySet()) {
-            BaseExcelSelectColumn item = excelSelectColumnEntry.getValue();
+    private void doComputeSourceData(BaseExcelSelectColumn excelSelectColumn) {
+        switch (excelSelectColumn.getType()) {
+            case CUSTOMER:
+                this.computeCustomerColumn((CommonExcelSelectColumn) excelSelectColumn);
+                break;
+            case CASCADE:
+                BaseExcelSelectColumn parentExcelSelectColumn = this.selectedResolveMap.getOrDefault(excelSelectColumn.getParentColumnIndex(),null);
+                if(null == parentExcelSelectColumn) return;
 
-            if (ExcelSelected.Type.SEQUENCE.equals(item.getType())) continue;
-
-            if (item instanceof CommonExcelSelectColumn) {
-                this.getEasyExcelSelectSourceData((CommonExcelSelectColumn) item);
-                continue;
-            }
-
-            if (item instanceof CascadeExcelSelectColumn) {
-                BaseExcelSelectColumn parentBaseExcelSelectColumn = this.selectedResolveMap.get(item.getParentColumnIndex());
-                if (parentBaseExcelSelectColumn instanceof CascadeExcelSelectColumn) {
-                    CascadeExcelSelectColumn parentCascadeExcelSelectColumn = (CascadeExcelSelectColumn) parentBaseExcelSelectColumn;
-                    Map<String, String[]> parentSourceArr = parentCascadeExcelSelectColumn.getSource();
-                    if (null == parentSourceArr || parentSourceArr.isEmpty()) {
-                        continue;
-                    }
-
-                    final Set<String> dictionaryKeys = new HashSet<>();
-                    parentSourceArr.forEach((index, values) -> Collections.addAll(dictionaryKeys, values));
-
-                    this.getCascadeExcelSelectSourceData((CascadeExcelSelectColumn) item, dictionaryKeys.toArray(new String[0]));
-                    continue;
+                if (parentExcelSelectColumn.isSourceEmpty()) {
+                    this.doComputeSourceData(parentExcelSelectColumn);
                 }
 
-                if (parentBaseExcelSelectColumn instanceof CommonExcelSelectColumn) {
-                    CommonExcelSelectColumn parentEasyExcelSelectColumn = (CommonExcelSelectColumn) parentBaseExcelSelectColumn;
-                    String[] parentSourceArr = parentEasyExcelSelectColumn.getSource();
+                String[] parentSourceArr = null;
 
-                    if (null == parentSourceArr || parentSourceArr.length == 0) continue;
+                if (parentExcelSelectColumn instanceof CascadeExcelSelectColumn) {
+                    Map<String, String[]> parentSource = ((CascadeExcelSelectColumn) parentExcelSelectColumn).getSource();
 
-                    parentSourceArr = Arrays.stream(parentSourceArr).distinct().toArray(String[]::new);
-                    this.getCascadeExcelSelectSourceData((CascadeExcelSelectColumn) item, parentSourceArr);
+                    if(null ==  parentSource || parentSource.isEmpty()) break;
+
+                    Set<String> dictionaryKeys = new HashSet<>();
+                    parentSource.forEach((index, values) -> Collections.addAll(dictionaryKeys, values));
+                    parentSourceArr = dictionaryKeys.stream().distinct().toArray(String[]::new);
+
+                } else {
+                    parentSourceArr = ((CommonExcelSelectColumn) parentExcelSelectColumn).getSource();
                 }
-            }
+
+                if(null ==  parentSourceArr || parentSourceArr.length == 0) break;
+
+                this.computeCascadeColumn((CascadeExcelSelectColumn)excelSelectColumn,parentSourceArr);
+                break;
+            case SEQUENCE:
+            default:
         }
     }
 
     /**
-     * 计算初始化顺序
-     *
-     * @return 计算顺序后的下拉选择列信息列表
+     * 计算联级列下拉资源
+     * @param excelSelectColumn 计算列
+     * @param parentSourceArr 参数
      */
-    private LinkedHashMap<Integer, BaseExcelSelectColumn> computeInitSourceDataOrder() {
-        LinkedHashMap<Integer, BaseExcelSelectColumn> orderExcelSelectColumnMap = new LinkedHashMap<>();
-        for (Map.Entry<Integer, BaseExcelSelectColumn> excelSelectColumnEntry : this.selectedResolveMap.entrySet()) {
-            BaseExcelSelectColumn item = excelSelectColumnEntry.getValue();
-            Integer key = excelSelectColumnEntry.getKey();
-            if (item instanceof CascadeExcelSelectColumn && this.selectedResolveMap.containsKey(item.getParentColumnIndex())) {
-                BaseExcelSelectColumn parentBaseExcelSelectColumn = this.selectedResolveMap.get(item.getParentColumnIndex());
-                if (!orderExcelSelectColumnMap.containsKey(item.getParentColumnIndex())) {
-                    orderExcelSelectColumnMap.put(item.getParentColumnIndex(), parentBaseExcelSelectColumn);
-                }
-            }
-            orderExcelSelectColumnMap.put(key, item);
-        }
-        return orderExcelSelectColumnMap;
-    }
+    private void computeCascadeColumn(CascadeExcelSelectColumn excelSelectColumn, String[] parentSourceArr) {
 
-    private void getCascadeExcelSelectSourceData(CascadeExcelSelectColumn excelSelectColumn, String[] source) {
         try {
             ExcelDynamicDataSource excelDynamicDataSource = excelSelectColumn.getSourceHandel().newInstance();
 
             HashMap<String, String[]> sourceArr = new HashMap<>();
 
-            for (String dictionaryKey : source) {
+            for (String dictionaryKey : parentSourceArr) {
                 String[] dictionaryKeySource = excelDynamicDataSource.getSource(new String[]{dictionaryKey});
-                if (null == dictionaryKeySource || dictionaryKeySource.length == 0) {
-                    continue;
-                }
                 sourceArr.put(dictionaryKey, dictionaryKeySource);
             }
+
             excelSelectColumn.setSource(sourceArr);
         } catch (Exception e) {
-            log.error("解析EXCEL动态下拉框数据失败，失败信息：", e);
+            throw new ExcelHandlerException("解析EXCEL动态下拉框数据失败", e);
         }
+
     }
 
-    private void getEasyExcelSelectSourceData(CommonExcelSelectColumn excelSelectColumn) {
+    /**
+     *计算自定义列下拉资源
+     * @param excelSelectColumn 计算列
+     */
+    private void computeCustomerColumn(CommonExcelSelectColumn excelSelectColumn) {
         try {
             ExcelDynamicDataSource excelDynamicDataSource = excelSelectColumn.getSourceHandel().newInstance();
             String[] source = excelDynamicDataSource.getSource(excelSelectColumn.getSourceParams());
             excelSelectColumn.setSource(source);
         } catch (Exception e) {
-            log.error("解析EXCEL动态下拉框数据失败，失败信息：", e);
+            throw new ExcelHandlerException("解析EXCEL动态下拉框数据失败", e);
         }
     }
 

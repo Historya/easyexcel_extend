@@ -12,9 +12,16 @@ import java.util.Map;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-public final class CascadeExcelSelectColumn extends BaseExcelSelectColumn {
+public final class CascadeExcelSelectColumn extends BaseExcelSelectColumn<Map<String, String[]>> {
     /**
-     * 下拉内容
+     * 判断source是否是空的
+     *
+     * @return 是否
      */
-    private Map<String, String[]> source;
+    @Override
+    public boolean isSourceEmpty() {
+        Map<String, String[]> source = super.getSource();
+        return null == source || source.isEmpty();
+    }
+
 }
