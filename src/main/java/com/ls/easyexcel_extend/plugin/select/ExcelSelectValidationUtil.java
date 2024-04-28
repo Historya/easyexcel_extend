@@ -146,6 +146,7 @@ public class ExcelSelectValidationUtil {
 
     private static String formatNameManager(String name) {
         if(StringUtils.isEmpty(name))  throw new IllegalArgumentException("错误的参数");
+        name = name.trim();
         return "_" + name;
     }
 

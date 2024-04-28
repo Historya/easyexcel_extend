@@ -32,6 +32,11 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
 
     private final Map<Integer,BaseExcelSelectColumn> selectedResolveMap = new ConcurrentHashMap<>();
 
+    /**
+     * 批次筏值
+     */
+    private static final int BATCH_CRITICAL = 50;
+
     private final Class<E> modelClass;
 
     public ExcelSelectedHandler(Class<E> modelClass) {
@@ -145,6 +150,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                     customerExcelSelectColumn.setFirstRow(excelSelected.firstRow());
                     customerExcelSelectColumn.setSourceHandel(excelSelected.sourceHandle());
                     customerExcelSelectColumn.setSourceParams(excelSelected.sourceParams());
+
                     this.selectedResolveMap.put((colIndex == -1 ? i : colIndex), customerExcelSelectColumn);
                     break;
                 case CASCADE:
@@ -156,6 +162,7 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                         cascadeExcelSelectColumn.setSourceHandel(excelSelected.sourceHandle());
                         cascadeExcelSelectColumn.setSourceParams(excelSelected.sourceParams());
                         cascadeExcelSelectColumn.setParentColumnIndex(excelSelected.parentColumnIndex());
+
                         this.selectedResolveMap.put((colIndex == -1 ? i : colIndex), cascadeExcelSelectColumn);
                     }
                     break;
@@ -170,17 +177,25 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
     private void computeSourceData() {
         if (this.selectedResolveMap.isEmpty()) return;
 
-        this.selectedResolveMap.values().parallelStream().forEach(e -> {
-            if (!e.isSourceEmpty()) return;
-            doComputeSourceData(e);
-        });
+        Collection<BaseExcelSelectColumn> selectColumnCollection = this.selectedResolveMap.values();
+        if(selectColumnCollection.size() >= BATCH_CRITICAL){
+            selectColumnCollection.parallelStream().forEach(e -> {
+                if (!e.isSourceEmpty()) return;
+                doComputeSourceData(e,0);
+            });
+        }else {
+            selectColumnCollection.forEach(e -> {
+                if (!e.isSourceEmpty()) return;
+                doComputeSourceData(e,0);
+            });
+        }
     }
 
     /**
      * 计算下拉资源
      * @param excelSelectColumn 计算列
      */
-    private void doComputeSourceData(BaseExcelSelectColumn excelSelectColumn) {
+    private void doComputeSourceData(BaseExcelSelectColumn excelSelectColumn,Integer deepIndex) {
         switch (excelSelectColumn.getType()) {
             case CUSTOMER:
                 this.computeCustomerColumn((CommonExcelSelectColumn) excelSelectColumn);
@@ -189,8 +204,8 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
                 BaseExcelSelectColumn parentExcelSelectColumn = this.selectedResolveMap.getOrDefault(excelSelectColumn.getParentColumnIndex(),null);
                 if(null == parentExcelSelectColumn) return;
 
-                if (parentExcelSelectColumn.isSourceEmpty()) {
-                    this.doComputeSourceData(parentExcelSelectColumn);
+                if (parentExcelSelectColumn.isSourceEmpty() && deepIndex.compareTo(this.cascadeAnalyzeDeep()) < 1) {
+                    this.doComputeSourceData(parentExcelSelectColumn,deepIndex+1);
                 }
 
                 String[] parentSourceArr = null;
@@ -258,6 +273,14 @@ public class ExcelSelectedHandler<E extends Model> implements BaseHandler<E>, Sh
     @Override
     public Class<E> getModelClass() {
         return this.modelClass;
+    }
+
+    /**
+     * 联级解析深度
+     * @return 深度 Integer
+     */
+    public Integer cascadeAnalyzeDeep(){
+        return 5;
     }
 
 }
